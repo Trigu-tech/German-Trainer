@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deutsch A2 Trainer + Stats</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; position: relative; }
+        h2 { color: #2c3e50; margin-bottom: 5px; margin-top: 0; }
+        .english { font-size: 1.2rem; margin-bottom: 20px; font-style: italic; color: #555; min-height: 3.5rem; display: flex; align-items: center; justify-content: center; }
+        input[type="text"] { width: 90%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 15px; outline: none; }
+        input[type="text"]:focus { border-color: #3498db; }
+        button { background: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; cursor: pointer; width: 100%; transition: opacity 0.2s; }
+        button:active { opacity: 0.8; }
+        .answer-area { margin-top: 20px; display: none; padding-top: 15px; border-top: 1px solid #eee; }
+        .correct-answer { font-weight: bold; color: #27ae60; font-size: 1.1rem; margin-bottom: 15px; line-height: 1.4; }
+        .feedback-btns { display: flex; gap: 10px; }
+        .btn-wrong { background: #e74c3c; }
+        .btn-right { background: #2ecc71; }
+        .stats-btn { background: none; color: #3498db; border: 1px solid #3498db; margin-top: 20px; width: auto; padding: 8px 15px; font-size: 0.9rem; }
+        
+        /* Stats Table Styles */
+        .stats-overlay { display: none; text-align: left; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+        th { color: #7f8c8d; }
+        .box-tag { font-weight: bold; color: #3498db; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="study-ui">
+        <h2>Translate:</h2>
+        <p class="english" id="english-text">Loading...</p>
+        <input type="text" id="user-input" placeholder="Type German here..." autocomplete="off">
+        <button id="show-btn" onclick="showAnswer()">Show Answer</button>
+
+        <div id="answer-area" class="answer-area">
+            <p style="margin: 0; font-size: 0.8rem; color: #888;">Correct German:</p>
+            <p class="correct-answer" id="german-text"></p>
+            <div class="feedback-btns">
+                <button class="btn-wrong" onclick="handleFeedback(false)">Wrong</button>
+                <button class="btn-right" onclick="handleFeedback(true)">Correct</button>
+            </div>
+        </div>
+        <button class="stats-btn" onclick="toggleStats()">Show Progress Stats</button>
+    </div>
+
+    <div id="done-ui" style="display:none;">
+        <h2>Gut gemacht!</h2>
+        <p>You've finished all due cards for now.</p>
+        <button onclick="location.reload()">Refresh</button>
+        <button class="stats-btn" onclick="toggleStats()">Show Progress Stats</button>
+    </div>
+
+    <div id="stats-ui" class="stats-overlay">
+        <h2>Your Progress</h2>
+        <p style="font-size: 0.85rem; color: #666;">How many sentences are in each box:</p>
+        <table id="stats-table">
+            <thead>
+                <tr>
+                    <th>Box</th>
+                    <th>Interval</th>
+                    <th>Count</th>
+                </tr>
+            </thead>
+            <tbody id="stats-body">
+                </tbody>
+        </table>
+        <button style="margin-top: 20px;" onclick="toggleStats()">Back to Learning</button>
+    </div>
+</div>
+
+<script>
+const sentences = [
+    { id: 1, en: "I would like a large cappuccino, please.", de: "Ich hätte gerne einen großen Cappuccino, bitte." },
+    { id: 2, en: "I am looking for the shelf with baking ingredients.", de: "Ich suche das Regal mit den Backzutaten." },
+    { id: 3, en: "Do you know if the bus is coming on time today?", de: "Wissen Sie, ob der Bus heute pünktlich kommt?" },
+    { id: 4, en: "I wanted to ask if you have time for an appointment tomorrow.", de: "Ich wollte fragen, ob Sie morgen Zeit für einen Termin haben." },
+    { id: 5, en: "I just need to quickly call my mother.", de: "Ich muss mal kurz meine Mutter anrufen." },
+    { id: 6, en: "It is about the heating in my flat; it's not working.", de: "Es geht um die Heizung in meiner Wohnung; sie funktioniert nicht." },
+    { id: 7, en: "That depends on how the weather will be.", de: "Das kommt darauf an, wie das Wetter wird." },
+    { id: 8, en: "I'm not sure, maybe at 8 PM.", de: "Ich bin mir nicht sicher, vielleicht um 20 Uhr." },
+    { id: 9, en: "What is it about exactly?", de: "Worum geht es denn genau?" },
+    { id: 10, en: "My boss wants me to work on Saturday.", de: "Mein Chef will, dass ich am Samstag arbeite." },
+    { id: 11, en: "I find that the movie was a bit too long.", de: "Ich finde, dass der Film ein bisschen zu lang war." },
+    { id: 12, en: "I have the feeling that I am getting sick.", de: "Ich habe das Gefühl, dass ich krank werde." },
+    { id: 13, en: "In my opinion, this restaurant is the best in Berlin.", de: "Meiner Meinung nach ist dieses Restaurant das beste in Berlin." },
+    { id: 14, en: "To be honest, I don't feel like doing sports today.", de: "Ehrlich gesagt habe ich heute keine Lust auf Sport." },
+    { id: 15, en: "Can we close the window? I am cold.", de: "Können wir das Fenster zumachen? Mir ist kalt." },
+    { id: 16, en: "I really fancy pizza today.", de: "Ich habe heute total Lust auf Pizza." },
+    { id: 17, en: "That doesn't matter to me / I don't mind.", de: "Das macht mir nichts aus." },
+    { id: 18, en: "What do you think about it?", de: "Was meinst du dazu?" },
+    { id: 19, en: "Don't worry.", de: "Mach dir keine Sorgen." },
+    { id: 20, en: "That sounds good!", de: "Das klingt gut!" },
+    { id: 21, en: "Can I pay by card?", de: "Kann ich mit Karte zahlen?" },
+    { id: 22, en: "Keep the change.", de: "Stimmt so." },
+    { id: 23, en: "Would you like to pay together or separate?", de: "Möchten Sie zusammen oder getrennt zahlen?" },
+    { id: 24, en: "A receipt, please, for my accounting.", de: "Einen Beleg, bitte für meine Buchhaltung." },
+    { id: 25, en: "Excuse me, how do I get to the main station?", de: "Entschuldigung, wie komme ich zum Hauptbahnhof?" },
+    { id: 26, en: "Excuse me, can I just get past?", de: "Entschuldigung, kann ich mal kurz vorbei?" },
+    { id: 27, en: "Until tomorrow! Have a nice evening!", de: "Bis morgen! Schönen Feierabend noch!" },
+    { id: 28, en: "Everything okay, see you then!", de: "Alles klar, bis dann!" },
+    { id: 29, en: "Could you please repeat that?", de: "Könnten Sie das bitte wiederholen?" },
+    { id: 30, en: "Hello Stefan! How's it going with you?", de: "Hallo Stefan! Wie läuft's bei dir?" }
+];
+
+const intervals = [
+    { label: "New / Reset", days: 0 },
+    { label: "1 Day", days: 1 },
+    { label: "3 Days", days: 3 },
+    { label: "7 Days", days: 7 },
+    { label: "14 Days", days: 14 },
+    { label: "Mastered (30d)", days: 30 }
+];
+
+let progress = JSON.parse(localStorage.getItem('german_progress_v2')) || {};
+let currentCard = null;
+
+function getDueCard() {
+    const now = Date.now();
+    const dueCards = sentences.filter(s => {
+        const data = progress[s.id] || { box: 0, nextReview: 0 };
+        return now >= data.nextReview;
+    });
+    return dueCards.length > 0 ? dueCards[Math.floor(Math.random() * dueCards.length)] : null;
+}
+
+function renderCard() {
+    currentCard = getDueCard();
+    if (!currentCard) {
+        document.getElementById('study-ui').style.display = 'none';
+        document.getElementById('done-ui').style.display = 'block';
+    } else {
+        document.getElementById('study-ui').style.display = 'block';
+        document.getElementById('done-ui').style.display = 'none';
+        document.getElementById('english-text').innerText = currentCard.en;
+        document.getElementById('german-text').innerText = currentCard.de;
+        document.getElementById('user-input').value = "";
+        document.getElementById('answer-area').style.display = 'none';
+        document.getElementById('show-btn').style.display = 'block';
+    }
+}
+
+function showAnswer() {
+    document.getElementById('answer-area').style.display = 'block';
+    document.getElementById('show-btn').style.display = 'none';
+}
+
+function handleFeedback(isCorrect) {
+    const data = progress[currentCard.id] || { box: 0 };
+    if (isCorrect) {
+        data.box = Math.min(data.box + 1, 5);
+    } else {
+        data.box = 0;
+    }
+    const waitTime = intervals[data.box].days * 24 * 60 * 60 * 1000;
+    data.nextReview = Date.now() + waitTime;
+    progress[currentCard.id] = data;
+    localStorage.setItem('german_progress_v2', JSON.stringify(progress));
+    renderCard();
+}
+
+function toggleStats() {
+    const studyUi = document.getElementById('study-ui');
+    const doneUi = document.getElementById('done-ui');
+    const statsUi = document.getElementById('stats-ui');
+
+    if (statsUi.style.display === 'block') {
+        statsUi.style.display = 'none';
+        renderCard();
+    } else {
+        studyUi.style.display = 'none';
+        doneUi.style.display = 'none';
+        statsUi.style.display = 'block';
+        updateStatsTable();
+    }
+}
+
+function updateStatsTable() {
+    const counts = [0, 0, 0, 0, 0, 0];
+    sentences.forEach(s => {
+        const b = progress[s.id] ? progress[s.id].box : 0;
+        counts[b]++;
+    });
+
+    let html = "";
+    intervals.forEach((interval, index) => {
+        html += `<tr>
+            <td class="box-tag">Box ${index}</td>
+            <td>${interval.label}</td>
+            <td>${counts[index]}</td>
+        </tr>`;
+    });
+    document.getElementById('stats-body').innerHTML = html;
+}
+
+renderCard();
+</script>
+</body>
+</html>
